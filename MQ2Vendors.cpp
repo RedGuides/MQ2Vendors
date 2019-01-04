@@ -1,6 +1,14 @@
 // MQ2Vendors.cpp
 // - plugin to monitor a vendors item list and notify you if they have items you want to buy.
 //
+// - Chatwiththisname 1/4/2019 - Fixed /vendor savevendors and /vendor nosavevendors to stop
+//							   displaying the help list because they lacked a second parameter.
+//							   - Updated getting price to actually get the price with the new
+//							   vendor UI setup where the price is a floating point number instead
+//							   of a section for each currency type.
+//							   - Updated output messages with some color, and now shows price and
+//							   slot number for each item found on initial report as well as when 
+//							   "/vendor found" command is used.
 
 /**
 * TODO:
@@ -234,12 +242,14 @@ VOID VendorCmd (PSPAWNINFO pChar, PCHAR szLine)
         iSaveVendors = 1;
         sprintf_s (nItem, "%d", iSaveVendors);
         WritePrivateProfileString("Config", "SaveVendors", nItem, INIFileName);
+		return;
     }
     if (!strcmp (szArg, "nosavevendors")) {
         WriteChatf("MQ2Vendors: Not Saving Vendor Item List");
         iSaveVendors = 0;
         sprintf_s (nItem, "%d", iSaveVendors);
         WritePrivateProfileString("Config", "SaveVendors", nItem, INIFileName);
+		return;
     }
     if (!strcmp (szArg, "list")) {
         pList = SearchList.begin ();
@@ -260,7 +270,7 @@ VOID VendorCmd (PSPAWNINFO pChar, PCHAR szLine)
             else {
                 WriteChatf("MQ2Vendors: Merchant has %d %s on your list:", ItemData.size(), ItemData.size()==1?"item":"items");
                 for(unsigned int x=0; x<ItemData.size(); x++)
-                    WriteChatf(" -- %d %s (cost: %dp %dg %ds %dc)", ItemData[x].Quantity, ItemData[x].Name, ItemData[x].Plat, ItemData[x].Gold, ItemData[x].Silver, ItemData[x].Copper);
+                    WriteChatf("MQ2Vendors: >>> \ap%s\ax X \ar%s\ax(\atCost\ax: %dp %dg %ds %dc) \atItemSlot\ax: \ar%i", ItemData[x].Name, ItemData[x].Quantity, ItemData[x].Plat, ItemData[x].Gold, ItemData[x].Silver, ItemData[x].Copper, ItemData[x].Slot+1);
             }
         }
         return;
@@ -452,10 +462,10 @@ PLUGIN_API VOID OnPulse (VOID)
             //0 - icon
             // 1 - item name
             // 2 - merchant quantity(--means always have it)
-            // 3 - plat
-            // 4 - gold
-            // 5 - silver
-            // 6 - copper
+            // 3 - plat - Now the currency icon
+            // 4 - gold - now the cost section
+            // 5 - silver - now the level section
+            // 6 - copper - no longer used. 
             hasItems = 0;
             ItemData.clear();
             for (i = 0; i < MAX_VENDOR_SLOTS; i++) {
@@ -467,9 +477,20 @@ PLUGIN_API VOID OnPulse (VOID)
                     //get the quantity for this     item slot.
                     CXStr qtystr = *cLWnd->GetItemText (&qtystr, i, 2);
                     GetCXStr (qtystr.Ptr, Quantity, MAX_STRING);
+					//Start of Changes - Chatwiththisname 1/4/2019
+					//These ints appear to store cP=Plat, cG=Gold, cS=Silver, cC=copper, need to parse the string in section 4 to get this now.
                     int cP = 0, cG = 0, cS = 0, cC = 0;
                     char cTemp[MAX_STRING] = {0};
-                    CXStr pCStr = *cLWnd->GetItemText(&pCStr, i, 3);
+					CXStr pCStr = *cLWnd->GetItemText(&pCStr, i, 4);
+					GetCXStr(pCStr.Ptr, cTemp, MAX_STRING);
+					//Convert the char array to an integer and multiply it by 1000. Had to add 1 to get that last copper to be correct.
+					int iTemp = (int)(atof(cTemp) * 1000)+1;
+					cP = iTemp / 1000;
+					cG = (iTemp - (cP*1000)) / 100;
+					cS = (iTemp - ((cP * 1000)+(cG*100))) / 10;
+					cC = (iTemp - ((cP * 1000) + (cG * 100) + (cS * 10))) / 1;
+					//The below block of code is the old way. Writing a new way.
+                   /* CXStr pCStr = *cLWnd->GetItemText(&pCStr, i, 3);
                     GetCXStr(pCStr.Ptr, cTemp, MAX_STRING);
                     cP = atoi(cTemp);
                     CXStr gCStr = *cLWnd->GetItemText(&gCStr, i, 4);
@@ -480,7 +501,8 @@ PLUGIN_API VOID OnPulse (VOID)
                     cS = atoi(cTemp);
                     CXStr cCStr = *cLWnd->GetItemText(&cCStr, i, 6);
                     GetCXStr(cCStr.Ptr, cTemp, MAX_STRING);
-                    cC = atoi(cTemp);
+                    cC = atoi(cTemp);*/
+					//End of Changes Chatwiththisname 1/4/2019
                     //if quantity == '--', item is always on the merchant.
                     if (Quantity && Quantity[0] == '-'
                         && Quantity[1] == '-') {
@@ -502,9 +524,6 @@ PLUGIN_API VOID OnPulse (VOID)
                         pList = SearchList.begin();
                         while (pList != SearchList.end()) {
                             if (!_stricmp (pList->c_str(), sItem)) {
-                                WriteChatf
-                                    ("MQ2Vendors: >>> \ap%s\ax : \ar%s\ax",
-                                    sItem, Quantity);
                                 hasItems++;
                                 strcpy_s(tItem.Name, sItem);
                                 tItem.Quantity = atoi(Quantity);
@@ -514,6 +533,7 @@ PLUGIN_API VOID OnPulse (VOID)
                                 tItem.Copper = cC;
                                 tItem.Slot = i;
                                 ItemData.push_back(tItem);
+								WriteChatf("MQ2Vendors: >>> \ap%s\ax X \ar%s\ax(\atCost\ax: %dp %dg %ds %dc) \atItemSlot\ax: \ar%i", sItem, Quantity, cP,cG,cS,cC, i+1);
                                 pList = SearchList.end ();
                             } else {
                                 pList++;
