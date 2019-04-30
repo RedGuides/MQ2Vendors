@@ -180,7 +180,7 @@ PLUGIN_API VOID VendorDebug(PSPAWNINFO pChar, PCHAR Cmd)
 
 BOOL WindowOpen(PCHAR WindowName) {
     PCSIDLWND pWnd=(PCSIDLWND)FindMQ2Window(WindowName);
-    return (pWnd) ? (BOOL)pWnd->dShow : false;
+    return (pWnd) ? (BOOL)pWnd->IsVisible() : false;
 }
 
 VOID InitSearchList ()
@@ -382,185 +382,190 @@ PLUGIN_API VOID ShutdownPlugin (VOID)
     delete pVendorsType;
 }
 
-PLUGIN_API VOID OnPulse (VOID)
+PLUGIN_API VOID OnPulse(VOID)
 {
-    static int sMWND = 0;
-    static int skipPulses = 0;
-    int mHeader = 0;
-    int i, j, k;
-    static int sListDone = 0;
-    int hasItems = 0;
-    CHAR sItem[MAX_STRING] = {0};
-    i = j = k = 0;
-    if (!InGames()) {
-        sMWND = 0;
-        sListDone = 0;
-        skipPulses = 0;
-        return;
-    }
-    if (!WindowOpen("MerchantWnd")) {
-        sMWND = 0;
-        sListDone = 0;
-        skipPulses = 0;
-        ItemData.clear();
-        return;
-    }
-    CListWnd *cLWnd = NULL;
-    //check our items list. we wait 200 pulses or end if we have MAX_VENDOR_SLOTS items.
-    CXWnd *Win=pMerchantWnd->GetChildItem("MW_PurchasePage");
-    if(Win) {
-        if(CXWnd *Win2=Win->GetChildItem("MW_ItemList")) {
-            cLWnd = (CListWnd*)((CSidlScreenWnd*)(Win->GetChildItem("MW_ItemList")));
-        }
-        else {
-            if(DEBUGGING)
-                WriteChatf("MQ2Vendors: Could not get MW_ItemList.");
-            return;
-        }
-    }
-    else {
-        if(DEBUGGING)
-            WriteChatf("MQ2Vendors: Could not get MW_PurchasePage.");
-        return;
-    }
-    if (!sListDone) {
-        int c = 0;
-        for (i = 0; i < MAX_VENDOR_SLOTS; i++) {
-            CXStr cxstr = *cLWnd->GetItemText (&cxstr, i, 1);
-            GetCXStr (cxstr.Ptr, sItem, MAX_STRING);
-            if (strlen (sItem) > 0) {
-                c++;
-            }
-        }
-        if (c == MAX_VENDOR_SLOTS || skipPulses++ > SKIP_PULSES) {
-            sListDone = 1;
-        }
-        return;
-    }
-    if (!sMWND) {
-        CHAR Quantity[32] = {0};
-        CHAR ZoneName[MAX_STRING] = {0};
-        CHAR MerchantName[MAX_STRING] = {0};
-        CHAR nItem[7] = {0};
-        list <string>::iterator pList;
-        _ItemData tItem;
-        sMWND = 1;
-        if(DEBUGGING) {
-            WriteChatf("MQ2Vendors::Merchant Window is open");
-            WriteChatf ("MQ2Vendors: waited %d pulses", skipPulses);
-        }
-        strcpy_s(ZoneName, pZoneInfo?((PZONEINFO) pZoneInfo)->ShortName:"unknown");
-        if (DEBUGGING)
-            WriteChatf("Zone: %s", ZoneName);
-        //update the merchants name(show whether they have items we want)
-        GetCXStr (pMerchantWnd->pFirstChildWnd->WindowText, MerchantName, MAX_STRING);
-        if(DEBUGGING) {
-            WriteChatf("cLWnd type: %d UI_Listbox", ((CXWnd *) cLWnd)->GetType());
-            WriteChatf("pMW name  : %s", MerchantName);
-        }
-        if (((CXWnd *)cLWnd)->GetType() == UI_Listbox) {
-            //0 - icon
-            // 1 - item name
-            // 2 - merchant quantity(--means always have it)
-            // 3 - plat - Now the currency icon
-            // 4 - gold - now the cost section
-            // 5 - silver - now the level section
-            // 6 - copper - no longer used. 
-            hasItems = 0;
-            ItemData.clear();
-            for (i = 0; i < MAX_VENDOR_SLOTS; i++) {
-                CXStr cxstr = *cLWnd->GetItemText (&cxstr, i, 1);
-                GetCXStr (cxstr.Ptr, sItem, MAX_STRING);
-                if(DEBUGGING)
-                    WriteChatf("GetItemText(%d,1): %s", i, sItem);
-                if (strlen (sItem) > 0) {
-                    //get the quantity for this     item slot.
-                    CXStr qtystr = *cLWnd->GetItemText (&qtystr, i, 2);
-                    GetCXStr (qtystr.Ptr, Quantity, MAX_STRING);
+	static int sMWND = 0;
+	static int skipPulses = 0;
+	int mHeader = 0;
+	int i, j, k;
+	static int sListDone = 0;
+	int hasItems = 0;
+	CHAR sItem[MAX_STRING] = { 0 };
+	i = j = k = 0;
+	if (!InGames()) {
+		sMWND = 0;
+		sListDone = 0;
+		skipPulses = 0;
+		return;
+	}
+	if (!WindowOpen("MerchantWnd")) {
+		sMWND = 0;
+		sListDone = 0;
+		skipPulses = 0;
+		ItemData.clear();
+		return;
+	}
+	CListWnd *cLWnd = NULL;
+	//check our items list. we wait 200 pulses or end if we have MAX_VENDOR_SLOTS items.
+	CXWnd *Win = pMerchantWnd->GetChildItem("MW_PurchasePage");
+	if (Win) {
+		if (CXWnd *Win2 = Win->GetChildItem("MW_ItemList")) {
+			cLWnd = (CListWnd*)((CSidlScreenWnd*)(Win->GetChildItem("MW_ItemList")));
+		}
+		else {
+			if (DEBUGGING)
+				WriteChatf("MQ2Vendors: Could not get MW_ItemList.");
+			return;
+		}
+	}
+	else {
+		if (DEBUGGING)
+			WriteChatf("MQ2Vendors: Could not get MW_PurchasePage.");
+		return;
+	}
+	if (!sListDone) {
+		int c = 0;
+		for (i = 0; i < MAX_VENDOR_SLOTS; i++) {
+			CXStr cxstr = *cLWnd->GetItemText(&cxstr, i, 1);
+			GetCXStr(cxstr.Ptr, sItem, MAX_STRING);
+			if (strlen(sItem) > 0) {
+				c++;
+			}
+		}
+		if (c == MAX_VENDOR_SLOTS || skipPulses++ > SKIP_PULSES) {
+			sListDone = 1;
+		}
+		return;
+	}
+	if (!sMWND) {
+		CHAR Quantity[32] = { 0 };
+		CHAR ZoneName[MAX_STRING] = { 0 };
+		CHAR MerchantName[MAX_STRING] = { 0 };
+		CHAR nItem[7] = { 0 };
+		list <string>::iterator pList;
+		_ItemData tItem;
+		sMWND = 1;
+		if (DEBUGGING) {
+			WriteChatf("MQ2Vendors::Merchant Window is open");
+			WriteChatf("MQ2Vendors: waited %d pulses", skipPulses);
+		}
+		strcpy_s(ZoneName, pZoneInfo ? ((PZONEINFO)pZoneInfo)->ShortName : "unknown");
+		if (DEBUGGING)
+			WriteChatf("Zone: %s", ZoneName);
+		//update the merchants name(show whether they have items we want)
+		GetCXStr(pMerchantWnd->GetFirstChildWnd()->CGetWindowText(), MerchantName, MAX_STRING);
+		if (DEBUGGING) {
+			WriteChatf("cLWnd type: %d UI_Listbox", ((CXWnd *)cLWnd)->GetType());
+			WriteChatf("pMW name  : %s", MerchantName);
+		}
+		if (((CXWnd *)cLWnd)->GetType() == UI_Listbox) {
+			//0 - icon
+			// 1 - item name
+			// 2 - merchant quantity(--means always have it)
+			// 3 - plat - Now the currency icon
+			// 4 - gold - now the cost section
+			// 5 - silver - now the level section
+			// 6 - copper - no longer used. 
+			hasItems = 0;
+			ItemData.clear();
+			for (i = 0; i < MAX_VENDOR_SLOTS; i++) {
+				CXStr cxstr = *cLWnd->GetItemText(&cxstr, i, 1);
+				GetCXStr(cxstr.Ptr, sItem, MAX_STRING);
+				if (DEBUGGING)
+					WriteChatf("GetItemText(%d,1): %s", i, sItem);
+				if (strlen(sItem) > 0) {
+					//get the quantity for this     item slot.
+					CXStr qtystr = *cLWnd->GetItemText(&qtystr, i, 2);
+					GetCXStr(qtystr.Ptr, Quantity, MAX_STRING);
 					//Start of Changes - Chatwiththisname 1/4/2019
 					//These ints appear to store cP=Plat, cG=Gold, cS=Silver, cC=copper, need to parse the string in section 4 to get this now.
-                    int cP = 0, cG = 0, cS = 0, cC = 0;
-                    char cTemp[MAX_STRING] = {0};
+					int cP = 0, cG = 0, cS = 0, cC = 0;
+					char cTemp[MAX_STRING] = { 0 };
 					CXStr pCStr = *cLWnd->GetItemText(&pCStr, i, 4);
 					GetCXStr(pCStr.Ptr, cTemp, MAX_STRING);
 					//Convert the char array to an integer and multiply it by 1000. Had to add 1 to get that last copper to be correct.
-					int iTemp = (int)(atof(cTemp) * 1000)+1;
+					int iTemp = (int)(atof(cTemp) * 1000) + 1;
 					cP = iTemp / 1000;
-					cG = (iTemp - (cP*1000)) / 100;
-					cS = (iTemp - ((cP * 1000)+(cG*100))) / 10;
+					cG = (iTemp - (cP * 1000)) / 100;
+					cS = (iTemp - ((cP * 1000) + (cG * 100))) / 10;
 					cC = (iTemp - ((cP * 1000) + (cG * 100) + (cS * 10))) / 1;
 					//The below block of code is the old way. Writing a new way.
-                   /* CXStr pCStr = *cLWnd->GetItemText(&pCStr, i, 3);
-                    GetCXStr(pCStr.Ptr, cTemp, MAX_STRING);
-                    cP = atoi(cTemp);
-                    CXStr gCStr = *cLWnd->GetItemText(&gCStr, i, 4);
-                    GetCXStr(gCStr.Ptr, cTemp, MAX_STRING);
-                    cG = atoi(cTemp);
-                    CXStr sCStr = *cLWnd->GetItemText(&sCStr, i, 5);
-                    GetCXStr(sCStr.Ptr, cTemp, MAX_STRING);
-                    cS = atoi(cTemp);
-                    CXStr cCStr = *cLWnd->GetItemText(&cCStr, i, 6);
-                    GetCXStr(cCStr.Ptr, cTemp, MAX_STRING);
-                    cC = atoi(cTemp);*/
+				   /* CXStr pCStr = *cLWnd->GetItemText(&pCStr, i, 3);
+					GetCXStr(pCStr.Ptr, cTemp, MAX_STRING);
+					cP = atoi(cTemp);
+					CXStr gCStr = *cLWnd->GetItemText(&gCStr, i, 4);
+					GetCXStr(gCStr.Ptr, cTemp, MAX_STRING);
+					cG = atoi(cTemp);
+					CXStr sCStr = *cLWnd->GetItemText(&sCStr, i, 5);
+					GetCXStr(sCStr.Ptr, cTemp, MAX_STRING);
+					cS = atoi(cTemp);
+					CXStr cCStr = *cLWnd->GetItemText(&cCStr, i, 6);
+					GetCXStr(cCStr.Ptr, cTemp, MAX_STRING);
+					cC = atoi(cTemp);*/
 					//End of Changes Chatwiththisname 1/4/2019
-                    //if quantity == '--', item is always on the merchant.
-                    if (Quantity && Quantity[0] == '-'
-                        && Quantity[1] == '-') {
-                            //we now have an item that the merchant has upon server reboot.
-                            if (iSaveVendors) {
-                                WritePrivateProfileSection(MerchantName, "", MDBINIFile);
-                                if (!mHeader) {
-                                    WritePrivateProfileString(MerchantName,"Zone", ZoneName,MDBINIFile);
-                                    mHeader = 1;
-                                }
-                                sprintf_s (nItem, "Item%02d", j++);
-                                WritePrivateProfileString (MerchantName, nItem, sItem, MDBINIFile);
-                            }
-                    } else {
-                        sprintf_s (nItem, "Temp%02d", k++);
-                        if(DEBUGGING)
-                            WriteChatf("%s=%s", nItem, sItem);
-                        //does an item exist on our searchlist ?
-                        pList = SearchList.begin();
-                        while (pList != SearchList.end()) {
-                            if (!_stricmp (pList->c_str(), sItem)) {
-                                hasItems++;
-                                strcpy_s(tItem.Name, sItem);
-                                tItem.Quantity = atoi(Quantity);
-                                tItem.Plat = cP;
-                                tItem.Gold = cG;
-                                tItem.Silver = cS;
-                                tItem.Copper = cC;
-                                tItem.Slot = i;
-                                ItemData.push_back(tItem);
-								WriteChatf("MQ2Vendors: >>> \ap%s\ax X \ar%s\ax(\atCost\ax: %dp %dg %ds %dc) \atItemSlot\ax: \ar%i", sItem, Quantity, cP,cG,cS,cC, i+1);
-                                pList = SearchList.end ();
-                            } else {
-                                pList++;
-                            }
-                        }
-                    }
-                } else {
-                    if(DEBUGGING)
-                        WriteChatf("pMerch->ItemDesc[%02d] was empty", i);
-                }
-            }
-            //update the merchants name(show whether they have items we want)
-            if (hasItems) {
-                CHAR Temp[MAX_STRING] = {0};
-                CHAR Temp2[MAX_STRING] = {0};
-                GetCXStr (pMerchantWnd->pFirstChildWnd->WindowText, Temp, MAX_STRING);
-                if (strncmp (Temp, ">", 1)) {
-                    sprintf_s (Temp2, "> %s <", Temp);
-                    SetCXStr ((PCXSTR *) & pMerchantWnd->pFirstChildWnd->WindowText, Temp2);
-                }
-                WriteChatf("MQ2Vendors: %s has \ar%d\ax item%s we are searching for!",
-                    Temp, hasItems, hasItems > 1 ? "s" : "");
-            } else {
-                CHAR Temp[MAX_STRING] = {0};
-                GetCXStr (pMerchantWnd->pFirstChildWnd->WindowText, Temp, MAX_STRING);
-                WriteChatf("MQ2Vendors: %s has nothing we are searching for!", Temp);
-            }
-        }
-    }
+					//if quantity == '--', item is always on the merchant.
+					if (Quantity && Quantity[0] == '-'
+						&& Quantity[1] == '-') {
+						//we now have an item that the merchant has upon server reboot.
+						if (iSaveVendors) {
+							WritePrivateProfileSection(MerchantName, "", MDBINIFile);
+							if (!mHeader) {
+								WritePrivateProfileString(MerchantName, "Zone", ZoneName, MDBINIFile);
+								mHeader = 1;
+							}
+							sprintf_s(nItem, "Item%02d", j++);
+							WritePrivateProfileString(MerchantName, nItem, sItem, MDBINIFile);
+						}
+					}
+					else {
+						sprintf_s(nItem, "Temp%02d", k++);
+						if (DEBUGGING)
+							WriteChatf("%s=%s", nItem, sItem);
+						//does an item exist on our searchlist ?
+						pList = SearchList.begin();
+						while (pList != SearchList.end()) {
+							if (!_stricmp(pList->c_str(), sItem)) {
+								hasItems++;
+								strcpy_s(tItem.Name, sItem);
+								tItem.Quantity = atoi(Quantity);
+								tItem.Plat = cP;
+								tItem.Gold = cG;
+								tItem.Silver = cS;
+								tItem.Copper = cC;
+								tItem.Slot = i;
+								ItemData.push_back(tItem);
+								WriteChatf("MQ2Vendors: >>> \ap%s\ax X \ar%s\ax(\atCost\ax: %dp %dg %ds %dc) \atItemSlot\ax: \ar%i", sItem, Quantity, cP, cG, cS, cC, i + 1);
+								pList = SearchList.end();
+							}
+							else {
+								pList++;
+							}
+						}
+					}
+				}
+				else {
+					if (DEBUGGING)
+						WriteChatf("pMerch->ItemDesc[%02d] was empty", i);
+				}
+			}
+			//update the merchants name(show whether they have items we want)
+			if (hasItems) {
+				CHAR Temp[MAX_STRING] = { 0 };
+				CHAR Temp2[MAX_STRING] = { 0 };
+				GetCXStr(pMerchantWnd->GetFirstChildWnd()->CGetWindowText(), Temp, MAX_STRING);
+				if (strncmp(Temp, ">", 1)) {
+					sprintf_s(Temp2, "> %s <", Temp);
+					pMerchantWnd->GetFirstChildWnd()->CSetWindowText(Temp2);
+					//SetCXStr((PCXSTR *)& pMerchantWnd->GetFirstChildWnd()->CGetWindowText(), Temp2);
+				}
+				WriteChatf("MQ2Vendors: %s has \ar%d\ax item%s we are searching for!",
+					Temp, hasItems, hasItems > 1 ? "s" : "");
+			}
+			else {
+				CHAR Temp[MAX_STRING] = { 0 };
+				GetCXStr(pMerchantWnd->GetFirstChildWnd()->CGetWindowText(), Temp, MAX_STRING);
+				WriteChatf("MQ2Vendors: %s has nothing we are searching for!", Temp);
+			}
+		}
+	}
 }
