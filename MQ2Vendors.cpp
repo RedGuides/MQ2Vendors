@@ -124,7 +124,7 @@ public:
 				}
 				return false;
 			case Count:
-				Dest.Int = ItemData.size();
+				Dest.Int = (int)ItemData.size();
 				Dest.Type = pIntType;
 				return true;
         }
@@ -288,7 +288,7 @@ void VendorCmd(PSPAWNINFO pChar, char* szLine)
     } else {
         strcpy_s (Copy, pCopy);
     }
-    i = strlen(Copy) - 1;
+    i = (int)strlen(Copy) - 1;
     while (i>0 && (Copy[i] == ' ' || Copy[i] == 0x12)) {
         i--;
     }
@@ -332,7 +332,7 @@ void VendorCmd(PSPAWNINFO pChar, char* szLine)
     }
     SearchList.sort ();
     SearchList.unique ();
-    sprintf_s (nItem, "%d", SearchList.size ());
+    sprintf_s (nItem, "%d", (int)SearchList.size());
     WritePrivateProfileSection("ItemsList", 0, INIFileName);
     i = 1;
     pList = SearchList.begin ();
