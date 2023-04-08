@@ -70,7 +70,7 @@ public:
 	bool GetMember(MQVarPtr VarPtr, const char* Member, char* Index, MQTypeVar& Dest)
 	{
         int i;
-        char Copy[MAX_STRING] = {0}, DataTypeTemp[MAX_STRING] = {0};
+
         MQTypeMember* pMember = MQ2VendorsType::FindMember(Member);
 
         if (!pMember)
